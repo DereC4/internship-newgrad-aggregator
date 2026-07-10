@@ -1,11 +1,20 @@
 package main
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 // fmt is the standard library package for formatted I/O.
 
-func add(a, b int) float64 {
-	return float64(a + b)
+func add(a, b int) (float64, error) {
+	// You wrap multiple return types in parentheses.
+	if b == -1 {
+		// Return a default value and a new error object
+		return 0.0, errors.New("Custom Error I made")
+	}
+
+	return float64(a + b), nil
 }
 
 func main() {
