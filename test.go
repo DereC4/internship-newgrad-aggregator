@@ -7,6 +7,11 @@ import (
 
 // fmt is the standard library package for formatted I/O.
 
+type Job struct {
+	JobName     string
+	JobLocation string
+}
+
 func add(a, b int) (float64, error) {
 	// You wrap multiple return types in parentheses.
 	if b == -1 {
