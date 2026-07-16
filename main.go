@@ -1,4 +1,4 @@
-package internshipsandnewgrad
+package main
 
 import (
 	"fmt"
