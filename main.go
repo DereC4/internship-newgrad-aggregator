@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 )
 
 func dogWorker(url string, ch chan string) {
@@ -42,10 +43,34 @@ func main() {
 		go dogWorker(url, resultsChannel)
 	}
 
+	// you have to open the file before reading from channel
+	file, err := os.OpenFile("testing.md", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Printf("Error opening file: %v\n", err)
+		return
+	}
+
 	for i := 0; i < len(urls); i++ {
 		results := <-resultsChannel
+		// channels will get consumed when you read them all one by one, so our two for loop approach was writing nothing
 		fmt.Printf("--- Document Received #%d ---\n", i+1)
 		fmt.Println(results)
 		fmt.Println("-------------------------------\n")
+
+		separator := fmt.Sprintf("\n\n# --- Document Received #%d ---\n\n", i+1)
+
+		if _, err := file.WriteString(separator); err != nil {
+			fmt.Printf("Error writing separator to file: %v\n", err)
+		}
+
+		if _, err := file.WriteString(results); err != nil {
+			fmt.Printf("Error writing content to file: %v\n", err)
+		}
+
+		fmt.Printf("Saved document #%d to combined_output.md\n", i+1)
 	}
+
+	for i := 0; i < len(urls); i++ {
+	}
+
 }
