@@ -30,6 +30,7 @@ func main() {
 	urls := []string{
 		// this is a slice
 		"https://raw.githubusercontent.com/vanshb03/Summer2027-Internships/dev/README.md",
+		"https://raw.githubusercontent.com/SimplifyJobs/Summer2026-Internships/refs/heads/dev/README.md",
 	}
 
 	resultsChannel := make(chan string)
