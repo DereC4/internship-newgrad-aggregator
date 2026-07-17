@@ -5,14 +5,80 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 )
 
 type JobListing struct {
-	Company     string
-	Role        string
-	Location    string
-	Application string
-	Age         string
+	Company  string
+	Role     string
+	Location string
+	Link     string
+	Age      string
+}
+
+func parseSimplify(rawHTML string) []JobListing {
+	var jobs []JobListing
+	var lastCompany string
+
+	_, afterTbody, foundStart := strings.Cut(rawHTML, "<tbody>")
+	tbodyContent, _, foundEnd := strings.Cut(afterTbody, "</tbody>")
+	if !foundStart || !foundEnd {
+		return nil
+	}
+
+	rows := strings.Split(tbodyContent, "<tr>")
+
+	for _, row := range rows {
+		row = strings.TrimSpace(row)
+		if row == "" {
+			continue
+		}
+
+		cols := strings.Split(row, "<td>")
+		if len(cols) < 6 {
+			continue
+		}
+
+		company := cleanHTML(cols[1])
+		role := cleanHTML(cols[2])
+		location := cleanHTML(cols[3])
+		appCell := cols[4]
+		age := cleanHTML(cols[5])
+
+		if company == "↳" || company == "" {
+			company = lastCompany
+		} else {
+			lastCompany = company
+		}
+
+		var appURL string
+		if strings.Contains(appCell, "href=\"") {
+			_, afterHref, _ := strings.Cut(appCell, "href=\"")
+			appURL, _, _ = strings.Cut(afterHref, "\"")
+		}
+
+		if appURL == "" || strings.Contains(appCell, "🔒") {
+			continue
+		}
+
+		jobs = append(jobs, JobListing{
+			Company:  company,
+			Role:     role,
+			Location: location,
+			Link:     appURL,
+			Age:      age,
+		})
+	}
+
+	return jobs
+}
+
+func cleanHTML(val string) string {
+	val = strings.ReplaceAll(val, "</td>", "")
+	val = strings.ReplaceAll(val, "</tr>", "")
+	val = strings.ReplaceAll(val, "<strong>", "")
+	val = strings.ReplaceAll(val, "</strong>", "")
+	return strings.TrimSpace(val)
 }
 
 func dogWorker(url string, ch chan string) {
@@ -59,7 +125,9 @@ func main() {
 	}
 
 	for i := 0; i < len(urls); i++ {
-		results := <-resultsChannel
+		data := <-resultsChannel
+		fetchedURL := data[0]
+		results := data[1]
 		// channels will get consumed when you read them all one by one, so our two for loop approach was writing nothing
 		fmt.Printf("--- Document Received #%d ---\n", i+1)
 		fmt.Println(results)
@@ -76,6 +144,10 @@ func main() {
 		}
 
 		fmt.Printf("Saved document #%d to combined_output.md\n", i+1)
+
+		if strings.Contains(fetchedURL, "SimplifyJobs") {
+			fmt.Println(parseSimplify(results))
+		}
 	}
 
 	for i := 0; i < len(urls); i++ {
