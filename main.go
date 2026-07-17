@@ -55,7 +55,7 @@ func main() {
 		// channels will get consumed when you read them all one by one, so our two for loop approach was writing nothing
 		fmt.Printf("--- Document Received #%d ---\n", i+1)
 		fmt.Println(results)
-		fmt.Println("-------------------------------\n")
+		fmt.Println("-------------------------------")
 
 		separator := fmt.Sprintf("\n\n# --- Document Received #%d ---\n\n", i+1)
 
