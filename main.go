@@ -16,6 +16,26 @@ type JobListing struct {
 	Age      string
 }
 
+func cleanHTML(val string) string {
+	val = strings.ReplaceAll(val, "<br>", " ")
+	val = strings.ReplaceAll(val, "<br/>", " ")
+	val = strings.ReplaceAll(val, "</br>", " ")
+
+	for strings.Contains(val, "<") && strings.Contains(val, ">") {
+		_, afterOpen, foundOpen := strings.Cut(val, ">")
+		if !foundOpen {
+			break
+		}
+		innerText, afterClose, foundClose := strings.Cut(afterOpen, "<")
+		if !foundClose {
+			break
+		}
+		val = innerText + afterClose
+	}
+
+	return strings.TrimSpace(val)
+}
+
 func parseSimplify(rawHTML string) []JobListing {
 	var jobs []JobListing
 	var lastCompany string
@@ -39,16 +59,10 @@ func parseSimplify(rawHTML string) []JobListing {
 			continue
 		}
 
-		company := cleanHTML(cols[1])
-		role := cleanHTML(cols[2])
-		location := cleanHTML(cols[3])
 		appCell := cols[4]
-		age := cleanHTML(cols[5])
 
-		if company == "↳" || company == "" {
-			company = lastCompany
-		} else {
-			lastCompany = company
+		if strings.Contains(appCell, "🔒") {
+			continue
 		}
 
 		var appURL string
@@ -57,8 +71,19 @@ func parseSimplify(rawHTML string) []JobListing {
 			appURL, _, _ = strings.Cut(afterHref, "\"")
 		}
 
-		if appURL == "" || strings.Contains(appCell, "🔒") {
+		if appURL == "" {
 			continue
+		}
+
+		company := cleanHTML(cols[1])
+		role := cleanHTML(cols[2])
+		location := cleanHTML(cols[3])
+		age := cleanHTML(cols[5])
+
+		if company == "↳" || company == "" {
+			company = lastCompany
+		} else {
+			lastCompany = company
 		}
 
 		jobs = append(jobs, JobListing{
@@ -71,14 +96,6 @@ func parseSimplify(rawHTML string) []JobListing {
 	}
 
 	return jobs
-}
-
-func cleanHTML(val string) string {
-	val = strings.ReplaceAll(val, "</td>", "")
-	val = strings.ReplaceAll(val, "</tr>", "")
-	val = strings.ReplaceAll(val, "<strong>", "")
-	val = strings.ReplaceAll(val, "</strong>", "")
-	return strings.TrimSpace(val)
 }
 
 func dogWorker(url string, ch chan string) {
@@ -133,28 +150,42 @@ func main() {
 		fmt.Println(results)
 		fmt.Println("-------------------------------")
 
-		separator := fmt.Sprintf("\n\n# --- Document Received #%d ---\n\n", i+1)
+		// separator := fmt.Sprintf("\n\n# --- Document Received #%d ---\n\n", i+1)
 
-		if _, err := file.WriteString(separator); err != nil {
-			fmt.Printf("Error writing separator to file: %v\n", err)
-		}
+		// if _, err := file.WriteString(separator); err != nil {
+		// 	fmt.Printf("Error writing separator to file: %v\n", err)
+		// }
 
-		if _, err := file.WriteString(results); err != nil {
-			fmt.Printf("Error writing content to file: %v\n", err)
-		}
+		// if _, err := file.WriteString(results); err != nil {
+		// 	fmt.Printf("Error writing content to file: %v\n", err)
+		// }
 
-		fmt.Printf("Saved document #%d to combined_output.md\n", i+1)
+		// fmt.Printf("Saved document #%d to combined_output.md\n", i+1)
 
 		if strings.Contains(fetchedURL, "SimplifyJobs") {
 			fmt.Println("Processing Simplify Repo...")
 
-			_, afterHeader, foundHeader := strings.Cut(results, "## 💻 Software Engineering Internship Roles")
-			if foundHeader {
-				sweTable, _, _ := strings.Cut(afterHeader, "</table>")
-				sweTable = sweTable + "</table>"
+			// basically HashMap <String, String> categories
+			// syntax: map [keytype] valuetype
+			categories := map[string]string{
+				"Software Engineering": "## 💻 Software Engineering Internship Roles",
+				"Product Management":   "## 📱 Product Management Internship Roles",
+				"Data Science / AI":    "## 🤖 Data Science, AI & Machine Learning Internship Roles",
+				"Quant Finance":        "## 📈 Quantitative Finance Internship Roles",
+			}
 
-				parsedJobs := parseSimplify(sweTable)
-				fmt.Printf("Parsed %d jobs from Simplify!\n", len(parsedJobs))
+			for catName, header := range categories {
+				_, afterHeader, foundHeader := strings.Cut(results, header)
+				if !foundHeader {
+					continue
+				}
+
+				tableBlock, _, _ := strings.Cut(afterHeader, "</table>")
+				tableBlock = tableBlock + "</table>"
+				parsedJobs := parseSimplify(tableBlock)
+
+				fmt.Printf("-> Found %d jobs under category: [%s]\n", len(parsedJobs), catName)
+
 			}
 		} else if strings.Contains(fetchedURL, "vanshb03") {
 			fmt.Println("Processing Vansh Repo...")
